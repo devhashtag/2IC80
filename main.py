@@ -1,69 +1,50 @@
-
-from ipaddress import IPv4Address
 from scapy.all import *
 from scapy.all import ARP, Ether, srp
-import netifaces
+import psutil
 
-from util import *
-
-# get interfaces, choose one to perfom the attack on
-# interfaces = get_if_list()
+from util import get_prefix_length, apply_mask, AddressFamily
 
 def scan_hosts(subnet):
-    """Scans the subnet and returns a list of hosts
+    """Scans the subnet (in cidr notation) and returns a list of hosts
     """
-    arp = ARP(pdst=subnet)
-    ether = Ether(dst='ff:ff:ff:ff:ff:ff')
-    packet = ether/arp
-    result = srp(packet, timeout=10, verbose=0)[0]
+    packet = Ether() / ARP()
+    packet[ARP].pdst = subnet
+    packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
 
-    hosts = []
-
-    for request, response in result:
-        hosts.append({
-            'ip_address': response.psrc,
-            'mac_address': response.hwsrc
-        })
+    answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
+    hosts = [{
+        'ip_address': response.psrc,
+        'mac_address': response.hwsrc
+    } for request, response in answered_requests]
 
     return hosts
 
 def get_interfaces():
-    """Returns a list of interfaces
+    """Returns a dictionary of the interfaces
     """
-    interfaces = []
+    interfaces = psutil.net_if_addrs()
+    interfaces_data = {}
 
-    for interface_guid in netifaces.interfaces():
-        try:
-            addresses = netifaces.ifaddresses(interface_guid)
-            print(addresses)
-            if netifaces.AF_INET not in addresses:
-                continue
+    # Iterate over the interfaces
+    for name, addresses in interfaces.items():
+        interface_data = { 'name': name }
 
-            address = addresses[netifaces.AF_INET]
-        except ValueError:
-            continue
+        # Loop over the addresses of the different OSI layers
+        # (we are only interested in the link and network layers)
+        for address in addresses:
+            if address.family == AddressFamily.AF_LINK:
+                interface_data['mac_address'] = address.address
+            elif address.family == AddressFamily.AF_INET:
+                network_ip = apply_mask(address.address, address.netmask)
+                prefix_length = get_prefix_length(address.netmask)
 
-        if len(address) != 1:
-            raise RuntimeWarning(f'Address does not contain strictly 1 address! address={address}')
+                interface_data['ip_address'] = address.address
+                interface_data['netmask'] = address.netmask
+                interface_data['subnet'] = f'{network_ip}/{prefix_length}'
 
-        if len(address) == 0:
-            continue
-        
-        address = address[0]
+        interfaces_data[name] = interface_data
 
-        interface = {
-            'subnet_mask': address['netmask'],
-            'ip_address': address['addr'],
-            'interface_guid': interface_guid,
-            # 'interface_description': interface['description'],
-            # 'interface_name': interface['name'],
-            'subnet': f"{address['addr']}/{get_prefix_length(address['netmask'])}"
-        }
-
-        interfaces.append(interface)
-
-    return interfaces
-
+    return interfaces_data
 
 def poison_arp_cache(interface_name, attacker, target1, target2):
     # send ARP reply to target 1
@@ -98,27 +79,7 @@ def poison_arp_cache(interface_name, attacker, target1, target2):
 
     # repeat ARP replies every X seconds
 
-print('listing interfaces...')
-interfaces = get_interfaces()
 
-# user has to do this step: choosing a network interface
-interface = list(filter(lambda interface: interface['interface_guid'] == '{09B94E68-838F-4BC6-8893-129A4E969A5D}', interfaces))[0]
-
-# print('listing hosts...')
-# hosts = scan_hosts(interface['subnet'])
-# print('finished')
-
-# for host in hosts:
-#     print(host['ip_address'])
-
-# # store ip and mac of the attacker
-# attacker = next(filter(lambda x: x['ip_address'] == interface['ip_address'], hosts), None)
-
-# # choose target 1
-# laptop = next(filter(lambda x: x['ip_address'] == '192.168.2.113', hosts), None)
-# print(laptop)
-# # # choose target 2
-# phone = next(filter(lambda x: x['ip_address'] == '192.168.2.16', hosts), None)
-# print(phone)
-
-# poison_arp_cache(interface['interface_name'], attacker, laptop, phone)
+interface = get_interfaces()['Wi-Fi']
+hosts = scan_hosts(interface['subnet'])
+print(hosts)
