@@ -25,3 +25,30 @@ class Dns():
     OPCODE_STANDARD_QUERY = 0
     OPCODE_INVERSE_QUERY = 1
     OPCODE_STATUS_REQUEST = 2
+
+def get_interfaces():
+    """Returns a dictionary of the interfaces
+    """
+    interfaces = psutil.net_if_addrs()
+    interfaces_data = {}
+
+    # Iterate over the interfaces
+    for name, addresses in interfaces.items():
+        interface_data = { 'name': name }
+
+        # Loop over the addresses of the different OSI layers
+        # (we are only interested in the link and network layers)
+        for address in addresses:
+            if address.family == AddressFamily.AF_LINK:
+                interface_data['mac_address'] = address.address
+            elif address.family == AddressFamily.AF_INET:
+                network_ip = apply_mask(address.address, address.netmask)
+                prefix_length = get_prefix_length(address.netmask)
+
+                interface_data['ip_address'] = address.address
+                interface_data['netmask'] = address.netmask
+                interface_data['subnet'] = f'{network_ip}/{prefix_length}'
+
+        interfaces_data[name] = interface_data
+
+    return interfaces_data

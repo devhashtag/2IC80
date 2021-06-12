@@ -2,7 +2,7 @@ from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import *
 
-from main import get_interfaces
+from util import get_interfaces
 
 class InterfaceScreen(QWidget):
     onInterfaceChosen = QtCore.pyqtSignal(dict)
@@ -55,7 +55,16 @@ class Window(QMainWindow):
         self.main_widget = MainScreen()
         self.interface_widget.onInterfaceChosen.connect(self.on_interface_chosen)
 
+        self.hideMenu()
         self.setScreen(self.interface_widget)
+
+    def hideMenu(self):
+        if self.menuBar() != None:
+            self.menuBar().hide()
+
+    def showMenu(self):
+        if self.menuBar() != None:
+            self.menuBar().show()
 
     def setScreen(self, screen):
         window_title = screen.windowTitle()
@@ -65,6 +74,7 @@ class Window(QMainWindow):
 
     def on_interface_chosen(self, interface):
         self.setScreen(self.main_widget)
+        self.showMenu()
 
     def _createMenubar(self):
         menubar = QMenuBar(self)
