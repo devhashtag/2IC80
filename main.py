@@ -7,6 +7,12 @@ from util import get_prefix_length, apply_mask, AddressFamily
 # TODO: check length
 dns_server = Resolver().nameservers[0]
 
+# We don't want to enable promiscuous mode because we don't care 
+# about the network traffic. Also, not all interfaces might have a
+# promiscuous mode. Disabling this prevents the use of promiscuous
+# mode and as a result the code will work on all interfaces.
+conf.sniff_promisc = 0
+
 def scan_hosts(subnet):
     """Scans the subnet (in cidr notation) and returns a list of hosts
     """
@@ -96,30 +102,40 @@ def process(packet):
     # else:
     #     print('Not addressed to us')
 
+    print('Original packet')
+    packet.show()
+    print('\n\n')
 
-    request = Ether() / IP() / UDP() / DNS()
+    # Make a new request containing the exact same DNS request
+    request = Ether() / IP() / UDP() / packet[DNS]
     # hard-coded mac address of the gateway
     request[Ether].dst = '34:64:a9:28:71:56'
     request[IP].dst = Resolver().nameservers[0]
+    # DNS uses port 53
     request[UDP].dport = 53
-    request[DNS].rd = 1
-    request[DNS].qd = packet[DNS].qd
 
     answered, unanswered = srp(request)
     (_, response) = answered[0]
+    print('Request')
+    request.show()
+    print('\n\n')
+    print('Response')
     response.show()
+    print('\n\n')
 
+    
 
 def dns_spoofing():
     # DNS is usually on port 53
-    sniff(filter='port 53', store=0, prn=process)
+    sniff(filter='port 53', store=0, prn=process, count = 2)
 
 
-interface = get_interfaces()['Wi-Fi']
-mac_address = interface['mac_address']
+# interfaces = get_interfaces()
+# interface = interfaces['Wi-Fi']
+# mac_address = interface['mac_address']
 
 # hosts = scan_hosts(interface['subnet'])
 # print(hosts)
 
-dns_spoofing()
+# dns_spoofing()
 

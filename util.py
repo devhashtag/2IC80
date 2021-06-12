@@ -13,5 +13,15 @@ def apply_mask(ip, mask):
     return str.join('.', [str(a & b) for a,b in zip(ip, mask)])
 
 class AddressFamily():
+    # socket and psutil have different values
+    # for AF_LINK, so we have to use the psutil
     AF_LINK = psutil.AF_LINK
     AF_INET = socket.AF_INET
+
+class Dns():
+    QUERY = 0
+    RESPONSE = 1
+
+    OPCODE_STANDARD_QUERY = 0
+    OPCODE_INVERSE_QUERY = 1
+    OPCODE_STATUS_REQUEST = 2

@@ -1,0 +1,7 @@
+1. Let user choose interface
+2. Show list of hosts (IP and Mac addresses)
+3. Choose target(s), also choose which Mac address to poison (usually attacker's Mac address)
+4. Have button for starting/stopping ARP MITM attack
+
+5. Let user edit a list with DNS records
+6. Have buttons for starting and stopping a DNS spoofing attack
