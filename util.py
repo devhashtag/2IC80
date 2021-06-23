@@ -1,5 +1,7 @@
 import socket
 import psutil
+# from scapy.all import *
+from scapy.all import ARP, Ether, srp, DNS, IP, UDP
 
 def get_prefix_length(mask):
     """Returns the prefix length of a subnet mask
@@ -52,3 +54,18 @@ def get_interfaces():
         interfaces_data[name] = interface_data
 
     return interfaces_data
+
+def scan_hosts(subnet):
+    """Scans the subnet (in cidr notation) and returns a list of hosts
+    """
+    packet = Ether() / ARP()
+    packet[ARP].pdst = subnet
+    packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
+
+    answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
+    hosts = [{
+        'ip_address': response.psrc,
+        'mac_address': response.hwsrc
+    } for request, response in answered_requests]
+
+    return hosts

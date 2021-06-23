@@ -13,20 +13,6 @@ dns_server = Resolver().nameservers[0]
 # mode and as a result the code will work on all interfaces.
 conf.sniff_promisc = 0
 
-def scan_hosts(subnet):
-    """Scans the subnet (in cidr notation) and returns a list of hosts
-    """
-    packet = Ether() / ARP()
-    packet[ARP].pdst = subnet
-    packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
-
-    answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
-    hosts = [{
-        'ip_address': response.psrc,
-        'mac_address': response.hwsrc
-    } for request, response in answered_requests]
-
-    return hosts
 
 def get_interfaces():
     """Returns a dictionary of the interfaces
