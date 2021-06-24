@@ -1,61 +1,54 @@
-from PyQt6 import QtCore
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import *
-from PyQt6.QtGui import QFont
+from util import HostScanner
+from async_widget import AsyncWidget
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QListWidget,
+    QListWidgetItem,
+    QVBoxLayout,
+    QPushButton
+)
 
-from util import scan_hosts
+class HostListWidget(AsyncWidget):
+    on_host_click = pyqtSignal(dict)
 
-class HostWidget(QTableWidget):
-    on_host_clicked = QtCore.pyqtSignal(dict)
-
-    def __init__(self, interface, *args):
-        QTableWidget.__init__(self, *args)
-
+    def __init__(self, interface, parent=None):
+        super().__init__(parent)
         self.interface = interface
-        self.hosts = []
+        self.setup()
 
-        self.refresh()
+    def setup(self):
+        self.create_list()
+        self.create_refresh_button()
+        self.create_layout()
+        self.reload_hosts()
 
-    def scan_hosts(self):
-        subnet = self.interface['subnet']
-        self.hosts = scan_hosts(subnet)
+    def create_list(self):
+        self.host_list = QListWidget()
+        self.host_list.itemDoubleClicked.connect(
+            lambda item: self.on_host_click.emit(item.data(Qt.ItemDataRole.UserRole))
+        )
 
-    def update_table(self):
-        n_hosts = len(self.hosts)
+    def create_refresh_button(self):
+        self.refresh_button = QPushButton('Refresh')
+        self.refresh_button.setIcon(QIcon('assets/refresh.svg'))
+        self.refresh_button.clicked.connect(self.reload_hosts)
 
-        self.clearContents()
-        self.setColumnCount(2)
-        self.setHorizontalHeaderLabels(['IP Address', 'MAC Address'])
-        self.setRowCount(n_hosts)
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setFont(QFont('monospace'))
-        self.font().setStyleHint(QFont.StyleHint.TypeWriter)
-        self.verticalHeader().hide()
+    def create_layout(self):
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.refresh_button)
+        layout.addWidget(self.host_list)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.cellDoubleClicked.connect(self.on_cell_clicked)
+    def reload_hosts(self):
+        self.host_list.clear()
 
-        for i in range(n_hosts):
-            host = self.hosts[i]
+        thread = HostScanner(self.interface['subnet'])
+        thread.scan_finished.connect(self.set_hosts)
+        self.execute_thread(thread)
 
-            for j in range(len(host)):
-                key = list(host.keys())[j]
-                item = QTableWidgetItem(host[key])
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                item.setData(Qt.ItemDataRole.UserRole, host)
-
-                print(i)
-                print(j)
-                print(item.data(Qt.ItemDataRole.UserRole))
-                self.setItem(i, j, item)
-
-    def refresh(self):
-        self.scan_hosts()
-        self.update_table()
-
-    def on_cell_clicked(self, row, column):
-        cell = self.item(row, column)
-        host = cell.data(Qt.ItemDataRole.UserRole)
-
-        print(cell.data(Qt.ItemDataRole.DisplayRole))
-
-        self.on_host_clicked.emit(host)
+    def set_hosts(self, hosts):
+        for host in hosts:
+            item = QListWidgetItem(self.host_list)
+            item.setData(Qt.ItemDataRole.DisplayRole, host['ip_address'])
+            item.setData(Qt.ItemDataRole.UserRole, host)

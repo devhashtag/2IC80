@@ -1,7 +1,7 @@
 import socket
 import psutil
-# from scapy.all import *
 from scapy.all import ARP, Ether, srp, DNS, IP, UDP
+from PyQt6.QtCore import QThread, pyqtSignal
 
 def get_prefix_length(mask):
     """Returns the prefix length of a subnet mask
@@ -69,3 +69,21 @@ def scan_hosts(subnet):
     } for request, response in answered_requests]
 
     return hosts
+
+class InterfaceLoader(QThread):
+    interfaces_loaded = pyqtSignal(dict)
+
+    def run(self):
+        interfaces = get_interfaces()
+        self.interfaces_loaded.emit(interfaces)
+
+class HostScanner(QThread):
+    scan_finished = pyqtSignal(list)
+
+    def __init__(self, subnet):
+        super().__init__()
+        self.subnet = subnet
+
+    def run(self):
+        hosts = scan_hosts(self.subnet)
+        self.scan_finished.emit(hosts)

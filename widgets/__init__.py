@@ -1,1 +1,1 @@
-from .host_widget import HostWidget
+from .host_widget import HostListWidget

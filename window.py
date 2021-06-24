@@ -1,6 +1,7 @@
+from tabs.arp import ARPTab
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import *
+from PyQt6.QtWidgets import QMainWindow
 
 from screens import InterfaceScreen, MainScreen
 
@@ -12,23 +13,18 @@ class Window(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._createMenubar()
-
         self.interface_screen = InterfaceScreen()
         self.main_screen = None
         self.interface_screen.onInterfaceChosen.connect(self.on_interface_chosen)
 
-        self.hideMenu()
-        self.setScreen(self.interface_screen)
-        # self.setScreen(MainScreen({'subnet': '192.168.2.0/24'}))
+        interface = {
+            'subnet': '192.168.2.0/24'
+        }
 
-    def hideMenu(self):
-        if self.menuBar() != None:
-            self.menuBar().hide()
-
-    def showMenu(self):
-        if self.menuBar() != None:
-            self.menuBar().show()
+        # self.setScreen(self.interface_screen)
+        main_screen = MainScreen(interface)
+        main_screen.add_tab(ARPTab(interface), 'ARP Spoofing')
+        self.setScreen(main_screen)
 
     def setScreen(self, screen):
         window_title = screen.windowTitle()
@@ -40,18 +36,3 @@ class Window(QMainWindow):
         self.main_screen = MainScreen(interface)
 
         self.setScreen(self.main_screen)
-        self.showMenu()
-
-    def _createMenubar(self):
-        menubar = QMenuBar(self)
-        self.setMenuBar(menubar)
-
-        file_menu = QMenu('File', self)
-        edit_menu = QMenu('Edit', self)
-        help_menu = QMenu('Help', self)
-
-        # TODO: add useful options
-
-        menubar.addMenu(file_menu)
-        menubar.addMenu(edit_menu)
-        menubar.addMenu(help_menu)

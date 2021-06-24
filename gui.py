@@ -1,9 +1,14 @@
+print('Importing modules...')
+
 from PyQt6.QtWidgets import QApplication
 from window import Window
 
-app = QApplication([])
+print('Initializing application...')
 
+app = QApplication([])
 window = Window()
 window.show()
+
+print('Initialized!')
 
 app.exec()
