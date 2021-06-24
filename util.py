@@ -73,6 +73,7 @@ def scan_hosts(subnet):
         Host(response.psrc, response.hwsrc)
         for request, response in answered_requests
     ]
+    hosts.sort(key=lambda host: socket.inet_aton(host.ip_address))
 
     return hosts
 
