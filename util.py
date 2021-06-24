@@ -1,3 +1,4 @@
+from entities import Interface, Host
 import socket
 import psutil
 from scapy.all import ARP, Ether, srp, DNS, IP, UDP
@@ -14,13 +15,13 @@ def apply_mask(ip, mask):
 
     return str.join('.', [str(a & b) for a,b in zip(ip, mask)])
 
-class AddressFamily():
+class AddressFamily:
     # socket and psutil have different values
-    # for AF_LINK, so we have to use the psutil
+    # for AF_LINK, so we have to use the psutil one
     AF_LINK = psutil.AF_LINK
     AF_INET = socket.AF_INET
 
-class Dns():
+class Dns:
     QUERY = 0
     RESPONSE = 1
 
@@ -31,29 +32,34 @@ class Dns():
 def get_interfaces():
     """Returns a dictionary of the interfaces
     """
-    interfaces = psutil.net_if_addrs()
-    interfaces_data = {}
+    interfaces = []
 
-    # Iterate over the interfaces
-    for name, addresses in interfaces.items():
-        interface_data = { 'name': name }
+    for name, addresses in psutil.net_if_addrs().items():
+        data = { 'name': name } 
 
-        # Loop over the addresses of the different OSI layers
-        # (we are only interested in the link and network layers)
         for address in addresses:
             if address.family == AddressFamily.AF_LINK:
-                interface_data['mac_address'] = address.address
+                data['mac_address'] = address.address
             elif address.family == AddressFamily.AF_INET:
-                network_ip = apply_mask(address.address, address.netmask)
-                prefix_length = get_prefix_length(address.netmask)
+                data['ip_address'] = address.address
+                data['netmask'] = address.netmask
+                data['network_address'] = apply_mask(data['ip_address'], data['netmask'])
+                data['prefix_length'] = get_prefix_length(data['netmask'])
 
-                interface_data['ip_address'] = address.address
-                interface_data['netmask'] = address.netmask
-                interface_data['subnet'] = f'{network_ip}/{prefix_length}'
+        try:
+            interfaces.append(Interface(
+                data['name'],
+                data['mac_address'],
+                data['ip_address'],
+                data['netmask'],
+                data['network_address'],
+                data['prefix_length']
+            ))
+        except KeyError as error:
+            key = error.args[0]
+            print(f"Skipping interface {name} because it has no value for '{key}'")
 
-        interfaces_data[name] = interface_data
-
-    return interfaces_data
+    return interfaces
 
 def scan_hosts(subnet):
     """Scans the subnet (in cidr notation) and returns a list of hosts
@@ -63,15 +69,15 @@ def scan_hosts(subnet):
     packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
 
     answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
-    hosts = [{
-        'ip_address': response.psrc,
-        'mac_address': response.hwsrc
-    } for request, response in answered_requests]
+    hosts = [
+        Host(response.psrc, response.hwsrc)
+        for request, response in answered_requests
+    ]
 
     return hosts
 
 class InterfaceLoader(QThread):
-    interfaces_loaded = pyqtSignal(dict)
+    interfaces_loaded = pyqtSignal(list)
 
     def run(self):
         interfaces = get_interfaces()

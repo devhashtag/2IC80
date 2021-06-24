@@ -1,5 +1,6 @@
+from .async_widget import AsyncWidget
+from entities import Host
 from util import HostScanner
-from async_widget import AsyncWidget
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -10,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 
 class HostListWidget(AsyncWidget):
-    on_host_click = pyqtSignal(dict)
+    on_host_click = pyqtSignal(Host)
 
     def __init__(self, interface, parent=None):
         super().__init__(parent)
@@ -43,12 +44,12 @@ class HostListWidget(AsyncWidget):
     def reload_hosts(self):
         self.host_list.clear()
 
-        thread = HostScanner(self.interface['subnet'])
+        thread = HostScanner(self.interface.subnet)
         thread.scan_finished.connect(self.set_hosts)
         self.execute_thread(thread)
 
     def set_hosts(self, hosts):
         for host in hosts:
             item = QListWidgetItem(self.host_list)
-            item.setData(Qt.ItemDataRole.DisplayRole, host['ip_address'])
+            item.setData(Qt.ItemDataRole.DisplayRole, host.ip_address)
             item.setData(Qt.ItemDataRole.UserRole, host)

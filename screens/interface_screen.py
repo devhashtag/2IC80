@@ -1,4 +1,5 @@
-from async_widget import AsyncWidget
+from entities import Interface
+from widgets import AsyncWidget
 from util import InterfaceLoader
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 
 class InterfaceScreen(AsyncWidget):
-    onInterfaceChosen = pyqtSignal(dict)
+    onInterfaceChosen = pyqtSignal(Interface)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,8 +46,8 @@ class InterfaceScreen(AsyncWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def set_interfaces(self, interfaces):
-        for name in interfaces:
+        for interface in interfaces:
             item = QListWidgetItem(self.interface_list)
-            item.setData(Qt.ItemDataRole.DisplayRole, name)
-            item.setData(Qt.ItemDataRole.UserRole, interfaces[name])
+            item.setData(Qt.ItemDataRole.DisplayRole, interface.name)
+            item.setData(Qt.ItemDataRole.UserRole, interface)
             item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter)

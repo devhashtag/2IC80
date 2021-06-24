@@ -1,4 +1,4 @@
-from async_widget import AsyncWidget
+from widgets import AsyncWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QTabWidget,
@@ -33,30 +33,3 @@ class MainScreen(AsyncWidget):
             self.tab_widget.removeTab(index)
         except ValueError:
             raise ValueError(f'{tab} is not in the list of tabs')
-
-    # def update_target_widget(self):
-    #     self.target_widget.clearContents()
-    #     self.target_widget.setRowCount(len(self.targets))
-
-    #     for index, target in enumerate(self.targets):
-    #         item = QTableWidgetItem(target['ip_address'])
-    #         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-    #         item.setData(Qt.ItemDataRole.UserRole, target)
-    #         self.target_widget.setItem(index, 0, item)
-
-    #     self.target_widget.update()
-
-    # def on_target_add(self, target):
-    #     print(target)
-    #     self.targets.append(target)
-    #     self.update_target_widget()
-
-    # def on_target_remove(self, target):
-    #     self.targets = [x for x in self.targets if x['ip_address'] != target['ip_address']]
-    #     self.update_target_widget()
-
-    # def on_target_cell_clicked(self, x, y):
-    #     cell = self.target_widget.item(x, y)
-    #     target = cell.data(Qt.ItemDataRole.UserRole)
-
-    #     self.on_target_remove(target)

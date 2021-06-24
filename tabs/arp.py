@@ -14,3 +14,15 @@ class ARPTab(QWidget):
     def setup(self):
         layout = QVBoxLayout(self)
         layout.addWidget(HostListWidget(self.interface))
+
+
+class ARPAttack:
+    def __init__(self, gateway=None, victims=[]):
+        self.gateway = gateway
+        self.victims = victims
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
