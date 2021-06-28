@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Interface:
     name: str
     mac_address: str

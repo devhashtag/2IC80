@@ -39,7 +39,7 @@ def get_interfaces():
 
         for address in addresses:
             if address.family == AddressFamily.AF_LINK:
-                data['mac_address'] = address.address
+                data['mac_address'] = address.address.replace('-', ':')
             elif address.family == AddressFamily.AF_INET:
                 data['ip_address'] = address.address
                 data['netmask'] = address.netmask
@@ -73,9 +73,11 @@ def scan_hosts(subnet):
         Host(response.psrc, response.hwsrc)
         for request, response in answered_requests
     ]
-    hosts.sort(key=lambda host: socket.inet_aton(host.ip_address))
 
-    return hosts
+    return sort_hosts(hosts)
+
+def sort_hosts(hosts):
+    return sorted(hosts, key=lambda host: socket.inet_aton(host.ip_address))
 
 class InterfaceLoader(QThread):
     interfaces_loaded = pyqtSignal(list)
