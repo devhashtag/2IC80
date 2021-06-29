@@ -1,6 +1,6 @@
 from entities import Interface
 from util import Sniffer, Dns
-from scapy.all import DNS, IP, UDP, sr1, send, DNSRR
+from scapy.all import DNS, IP, UDP, sr1, send, DNSRR, ICMP
 
 class DNSAttack:
     def __init__(self,
@@ -31,6 +31,16 @@ class DNSAttack:
         if not packet.haslayer(DNS):
             return
 
+        # ICMP containing DNS is probably just a destination unreachable message
+        # we simply ignore those because it cannot be recovered from
+        if packet.haslayer(ICMP):
+            return
+
+        # Skip requests from our machine
+        if packet[IP].src == self.interface.ip_address:
+            return
+
+        # We will only handle standard queries
         if packet[DNS].qr != Dns.QUERY or packet[DNS].opcode != Dns.OPCODE_STANDARD_QUERY:
             return
 
@@ -72,6 +82,7 @@ class DNSAttack:
         request[IP].src = self.interface.ip_address
         request[IP].dst = self.dns_server
         request[UDP].dport = 53
+        request[UDP].sport = 4500
 
         for _ in range(self.request_retries):
             response = sr1(request, verbose=0, timeout=self.request_timeout)
@@ -79,5 +90,3 @@ class DNSAttack:
                 return response
 
         return None
-
-

