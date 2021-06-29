@@ -1,8 +1,8 @@
 from entities import Interface
 from widgets import AsyncWidget
 from util import InterfaceLoader
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import (
     QListWidget,
     QVBoxLayout,
     QListWidgetItem

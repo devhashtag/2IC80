@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow
 from tabs import ARPTab, DNSTab
 from screens import InterfaceScreen, MainScreen
 

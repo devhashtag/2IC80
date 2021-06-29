@@ -1,6 +1,6 @@
 print('Importing modules...')
 
-from PyQt6.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 from scapy.all import conf
 from window import Window
 
