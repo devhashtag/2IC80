@@ -1,8 +1,8 @@
-from entities import Interface, Host
 import socket
 import psutil
-from scapy.all import ARP, Ether, srp, DNS, IP, UDP
-from PyQt6.QtCore import QThread, pyqtSignal
+from scapy.all import ARP, Ether, srp
+from entities import Host, Interface
+from .address_family import AddressFamily
 
 def get_prefix_length(mask):
     """Returns the prefix length of a subnet mask
@@ -15,19 +15,23 @@ def apply_mask(ip, mask):
 
     return str.join('.', [str(a & b) for a,b in zip(ip, mask)])
 
-class AddressFamily:
-    # socket and psutil have different values
-    # for AF_LINK, so we have to use the psutil one
-    AF_LINK = psutil.AF_LINK
-    AF_INET = socket.AF_INET
+def scan_hosts(subnet):
+    """Scans the subnet (in cidr notation) and returns a list of hosts
+    """
+    packet = Ether() / ARP()
+    packet[ARP].pdst = subnet
+    packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
 
-class Dns:
-    QUERY = 0
-    RESPONSE = 1
+    answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
+    hosts = [
+        Host(response.psrc, response.hwsrc)
+        for request, response in answered_requests
+    ]
 
-    OPCODE_STANDARD_QUERY = 0
-    OPCODE_INVERSE_QUERY = 1
-    OPCODE_STATUS_REQUEST = 2
+    return sort_hosts(hosts)
+
+def sort_hosts(hosts):
+    return sorted(hosts, key=lambda host: socket.inet_aton(host.ip_address))
 
 def get_interfaces():
     """Returns a dictionary of the interfaces
@@ -60,39 +64,3 @@ def get_interfaces():
             print(f"Skipping interface {name} because it has no value for '{key}'")
 
     return interfaces
-
-def scan_hosts(subnet):
-    """Scans the subnet (in cidr notation) and returns a list of hosts
-    """
-    packet = Ether() / ARP()
-    packet[ARP].pdst = subnet
-    packet[Ether].dst = 'ff:ff:ff:ff:ff:ff'
-
-    answered_requests, unanswered_requests = srp(packet, timeout=10, verbose=0)
-    hosts = [
-        Host(response.psrc, response.hwsrc)
-        for request, response in answered_requests
-    ]
-
-    return sort_hosts(hosts)
-
-def sort_hosts(hosts):
-    return sorted(hosts, key=lambda host: socket.inet_aton(host.ip_address))
-
-class InterfaceLoader(QThread):
-    interfaces_loaded = pyqtSignal(list)
-
-    def run(self):
-        interfaces = get_interfaces()
-        self.interfaces_loaded.emit(interfaces)
-
-class HostScanner(QThread):
-    scan_finished = pyqtSignal(list)
-
-    def __init__(self, subnet):
-        super().__init__()
-        self.subnet = subnet
-
-    def run(self):
-        hosts = scan_hosts(self.subnet)
-        self.scan_finished.emit(hosts)
