@@ -9,7 +9,7 @@ class ARPAttack:
             interface: Interface,
             gateway: Host = None,
             victims: list[Host] = [],
-            interval: int = 0.5):
+            interval: int = 10):
 
         if gateway is None:
             raise ValueError('There is no gateway selected')
