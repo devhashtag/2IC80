@@ -1,3 +1,4 @@
+from attacks.dns_attack import DNSAttack
 from entities import Interface
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -19,6 +20,7 @@ class DNSTab(QWidget):
         self.interface = interface
         self.widgets = { }
         self.dns_table = { }
+        self.attack = None
         self.setup()
 
     def setup(self):
@@ -45,6 +47,8 @@ class DNSTab(QWidget):
     def connect_components(self):
         self.widgets['add button'].released.connect(self.on_add)
         self.widgets['dns table'].cellDoubleClicked.connect(self.on_item_remove)
+        self.widgets['start button'].released.connect(self.start)
+        self.widgets['stop button'].released.connect(self.stop)
 
     def create_layout(self):
         sublayout = QGridLayout()
@@ -97,10 +101,21 @@ class DNSTab(QWidget):
             table.setItem(i, 1, QTableWidgetItem(ip))
 
     def start(self):
-        pass
+        if self.attack is not None and self.attack.active:
+            self.show_error('Cannot start DNS attack', 'There is already a DNS attack active')
+            return
+    
+        # We send a reference of self.dns_table instead of a copy so that any
+        # changes will go in effect immediatly, without restarting the attack
+        self.attack = DNSAttack(self.interface, self.dns_table)
+        self.attack.start()
 
     def stop(self):
-        pass
+        if self.attack is None or not self.attack.active:
+            self.show_error('Cannot stop DNS attack', 'There is no DNS attack active')
+            return
+     
+        self.attack.stop()
 
     def show_error(self, title, message):
         error_message = QMessageBox(QMessageBox.Icon.Critical, title, message)

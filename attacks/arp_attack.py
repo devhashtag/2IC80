@@ -21,21 +21,21 @@ class ARPAttack:
         self.victims = victims
         self.interval = interval
         self.active = False
-        self.sniffing_thread = Sniffer(self.interface, self.forward_packet)
 
     def start(self):
         self.active = True
         # We don't need to keep a reference to this thread because the thread will stop automatically
         Thread(target = self.poison_cache).start()
+        self.sniffing_thread = Sniffer(self.interface, self.forward_packet)
         self.sniffing_thread.start()
 
     def stop(self):
-        self.active = False
         self.sniffing_thread.join()
         self.repair_cache()
+        self.active = False
 
     def forward_packet(self, packet):
-        packet.show()
+        pass
 
     def ping(self):
         for victim in self.victims:
