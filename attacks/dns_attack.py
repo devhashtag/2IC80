@@ -28,7 +28,7 @@ class DNSAttack:
 
     def process_packet(self, packet):
         # we care only about DNS requests
-        if not packet.haslayer(DNS):
+        if not packet.haslayer(DNS) or not packet.haslayer(IP):
             return
 
         # ICMP containing DNS is probably just a destination unreachable message

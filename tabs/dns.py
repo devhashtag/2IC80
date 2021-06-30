@@ -107,6 +107,8 @@ class DNSTab(QWidget):
     
         # We send a reference of self.dns_table instead of a copy so that any
         # changes will go in effect immediatly, without restarting the attack
+        # EDIT: apparently you still have to restart before the changes
+        # go into effect
         self.attack = DNSAttack(self.interface, self.dns_table)
         self.attack.start()
 
